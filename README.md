@@ -5,3 +5,10 @@ VLM based module used to validated the output of the B4H detection , the validat
 3. License plate Validator
 Model used
 1. Gemini
+
+## Setup
+
+1. Copy `.env.example` to `.env` and fill in your API keys.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
