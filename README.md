@@ -1,0 +1,2 @@
+# ai_validator
+VLM based module used to validated the output of the B4H detection , the validator consist of :
