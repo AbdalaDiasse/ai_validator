@@ -3,10 +3,20 @@ import io
 from PIL import Image
 import openai
 from src.app.validators.base_validator import BaseValidator
+from src.app.settings import Settings
 
-openai.api_key = os.getenv('OPENAI_API_KEY')
+settings = Settings()
+
+openai.api_key = settings.openai_api_key
+# openai.api_key = os.getenv('OPENAI_API_KEY')
 
 class OpenAIValidator(BaseValidator):
+    def __init__(self):
+        pass
+        # super().__init__(base_model="gpt-4o")
+        # if not openai.api_key:
+        #     raise ValueError("OpenAI API key is not set. Please set the OPENAI_API_KEY environment variable.")
+        
     def validate(self, image: Image.Image, class_name: str) -> dict:
         # Prepare image bytes
         buf = io.BytesIO()

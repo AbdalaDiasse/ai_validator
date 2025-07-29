@@ -7,17 +7,7 @@ from src.app.utils.image_utils import decode_image, crop_image
 from src.app.validators.openai_validator import OpenAIValidator
 from src.app.validators.gemini_validator import GeminiValidator
 from src.app.validators.nvidia_validator import NvidiaValidator
-
-class Settings(BaseSettings):
-    openai_api_key: str
-    google_api_key: str
-    nvidia_nim_endpoint: str
-    nvidia_nim_api_key: str
-
-    class Config:
-        env_file = '.env'
-
-settings = Settings()
+from src.app.settings import settings
 
 app = FastAPI(title='VLM Validator Service')
 

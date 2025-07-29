@@ -5,106 +5,82 @@
 # import json
 import os
 import cv2
+import json
 import ultralytics
 from google import genai
 from google.genai import types
 from PIL import Image
 from ultralytics.utils.downloads import safe_download
 from ultralytics.utils.plotting import Annotator, colors
-import base_validator
 from src.app.validators.base_validator import BaseValidator
+from src.app.settings import settings
+google_api_key = settings.google_api_key
 
 
 class GeminiValidator(BaseValidator):
     def __init__(self):
         super().__init__(base_model="gemini-2.5-pro")
-        self.client = genai.Client(api_key="AIzaSyAB8IE5VyPgfpIUr-7xMDoiW9SVYkb7tF0")
+        self.client = genai.Client(api_key=google_api_key)
         
-    def validate(self, image: Image.Image, class_name: str) -> dict:
-        buf = io.BytesIO()
-        image.save(buf, format='PNG')
-        buf.seek(0)
-        img_bytes = buf.read()
 
-        response = gemini.chat.create(
-            model='gemini-1.5',
-            prompt=f"Validate the detected class '{class_name}'. Return label and confidence between 0 and 1.",
-            images=[{'image_bytes': img_bytes, 'mime_type': 'image/png'}]
-        )
-        content = response.last.user_response_text.strip().split()
-        label = content[1]
-        confidence = float(content[-1])
-        return {'label': label, 'confidence': confidence}
-    
-    def validate_lpr(self, image: Image.Image, class_name: str) -> dict:
-        # Define the text prompt
+    def validate(self, image: Image.Image, class_name: str, task: str) -> dict:
+        """
+        Dispatch validation based on the task: 'lpr', 'gender', or 'age'.
+        """
+        if task == "lpr":
+            return self._validate_lpr(image)
+        # elif task == "gender":
+        #     return self._validate_gender(image, class_name)
+        # elif task == "age":
+        #     return self._validate_age(image, class_name)
+        else:
+            raise ValueError(f"❌ Unsupported task: {task}. Allowed: lpr, gender, age")
+
+    # LPR: Detect and OCR license plates
+    def _validate_lpr(self, image: Image.Image) -> dict:
         prompt = """
-        Detect the 2d bounding box around:
-        highlight the area off all visible license plates in each car.
+        Detect 2D bounding boxes for all visible license plates.
         """
-
-        # Fixed, plotting function depends on this.
         output_prompt = """
-        Return just box_2d which will be location of detected text areas + label, the label will be license plate number , 
-        use OCR to extract the the plate number, if license plate is not clear ignore it , no additional text.
+        Return only 'box_2d' and 'label' (plate number from OCR). 
+        Ignore unclear plates. No extra text.
         """
+        h, w = image.shape[:2]
+        results = self.inference(image, prompt + output_prompt)
+        cln_results = json.loads(self.clean_results(results))
 
-        image, w, h = read_image("./trafic5.jpg")  # Read img, extract width, height
-
-
-        print("Starting inference...")
-        results = self.inference(image, prompt + output_prompt)  # Perform inference
-        print(results)
-        cln_results = json.loads(clean_results(results))  # Clean results, list convert
-
-        annotator = Annotator(image)  # initialize Ultralytics annotator
-
+        annotator = Annotator(image)
         for idx, item in enumerate(cln_results):
-            # By default, gemini model return output with y coordinates first.
-            # Scale normalized box coordinates (0–1000) to image dimensions
-            y1, x1, y2, x2 = item["box_2d"]  # bbox post processing,
-            y1 = y1 / 1000 * h
-            x1 = x1 / 1000 * w
-            y2 = y2 / 1000 * h
-            x2 = x2 / 1000 * w
-
-            # if x1 > x2:
-            #     x1, x2 = x2, x1  # Swap x-coordinates if needed
-            # if y1 > y2:
-            #     y1, y2 = y2, y1  # Swap y-coordinates if needed
-
-            annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
-    
-    def object_detection(self, image: Image.Image) -> list:
-        """Detect objects in the image using Gemini's object detection capabilities."""
-
-        prompt = """Detect the 2d bounding boxes of objects in image."""
-
-        # Fixed, plotting function depends on this.
-        output_prompt = "Return just box_2d and labels, no additional text."
-
-        image, w, h = read_image("gemini-image1.jpg")  # Read img, extract width, height
-
-        results = self.inference(image, prompt + output_prompt)  # Perform inference
-
-        cln_results = json.loads(clean_results(results))  # Clean results, list convert
-
-        annotator = Annotator(image)  # initialize Ultralytics annotator
-
-        for idx, item in enumerate(cln_results):
-            # By default, gemini model return output with y coordinates first.
-            # Scale normalized box coordinates (0–1000) to image dimensions
-            y1, x1, y2, x2 = item["box_2d"]  # bbox post processing,
-            y1 = y1 / 1000 * h
-            x1 = x1 / 1000 * w
-            y2 = y2 / 1000 * h
-            x2 = x2 / 1000 * w
-
-            if x1 > x2:
-                x1, x2 = x2, x1  # Swap x-coordinates if needed
-            if y1 > y2:
-                y1, y2 = y2, y1  # Swap y-coordinates if needed
-
+            y1, x1, y2, x2 = item["box_2d"]
+            y1, x1, y2, x2 = (y1 / 1000 * h, x1 / 1000 * w, y2 / 1000 * h, x2 / 1000 * w)
             annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
 
-        Image.fromarray(annotator.result())  # display the output
+        return {"detections": cln_results, "annotated_image": annotator.result()}
+
+    # # Gender Classification
+    # def _validate_gender(self, image: Image.Image, class_name: str) -> dict:
+    #     return self._run_gemini_validator(image, class_name, task_type="gender")
+
+    # # Age Estimation
+    # def _validate_age(self, image: Image.Image, class_name: str) -> dict:
+    #     return self._run_gemini_validator(image, class_name, task_type="age")
+
+    # # Shared Gemini Validation Logic for gender/age
+    # def _run_gemini_validator(self, image: Image.Image, class_name: str, task_type: str) -> dict:
+    #     buf = io.BytesIO()
+    #     image.save(buf, format='PNG')
+    #     img_bytes = buf.getvalue()
+
+    #     response = gemini.chat.create(
+    #         model='gemini-1.5',
+    #         prompt=f"Validate the detected class '{class_name}' for {task_type}. "
+    #                f"Return label (predicted {task_type}) and confidence (0-1).",
+    #         images=[{'image_bytes': img_bytes, 'mime_type': 'image/png'}]
+    #     )
+
+    #     content = response.last.user_response_text.strip().split()
+    #     label = content[1]
+    #     confidence = float(content[-1])
+        
+        
+        return {"label": label, "confidence": confidence}

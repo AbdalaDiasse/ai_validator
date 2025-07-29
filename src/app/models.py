@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field ,RootModel
 from typing import List, Literal, Optional, Dict
 
 class BBox(BaseModel):
@@ -19,5 +19,5 @@ class ValidatorResult(BaseModel):
     confidence: int = Field(..., ge=1, le=10)
     validated: bool
 
-class ValidateResponse(BaseModel):
-    __root__: Dict[str, ValidatorResult]
+class ValidateResponse(RootModel[Dict[str, ValidatorResult]]):
+    root: Dict[str, ValidatorResult]

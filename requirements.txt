@@ -7,4 +7,5 @@ openai
 google-genai 
 requests
 ultralytics
-google-genai 
+google-genai
+pydantic-settings 
