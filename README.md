@@ -12,3 +12,6 @@ Model used
 2. Install dependencies:
    ```bash
    pip install -r requirements.txt
+
+## To test :
+pytest --maxfail=1 --disable-warnings -q

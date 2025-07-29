@@ -90,7 +90,7 @@ Return just box_2d which will be location of detected text areas + label, the la
 use OCR to extract the the plate number, if license plate is not clear ignore it , no additional text.
 """
 
-image, w, h = read_image("./trafic5.jpg")  # Read img, extract width, height
+image, w, h = read_image("./trafic2.jpg")  # Read img, extract width, height
 
 
 print("Starting inference...")
@@ -109,10 +109,10 @@ for idx, item in enumerate(cln_results):
     y2 = y2 / 1000 * h
     x2 = x2 / 1000 * w
 
-    # if x1 > x2:
-    #     x1, x2 = x2, x1  # Swap x-coordinates if needed
-    # if y1 > y2:
-    #     y1, y2 = y2, y1  # Swap y-coordinates if needed
+    if x1 > x2:
+        x1, x2 = x2, x1  # Swap x-coordinates if needed
+    if y1 > y2:
+        y1, y2 = y2, y1  # Swap y-coordinates if needed
 
     annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
 

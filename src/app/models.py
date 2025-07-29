@@ -11,6 +11,7 @@ class ValidateRequest(BaseModel):
     image_base64: str
     bbox: BBox
     class_name: str
+    task: Literal["lpr", "age", "gender"]   #restrict to only these options
     validators: Optional[List[Literal['openai', 'gemini', 'nvidia']]] = None
 
 class ValidatorResult(BaseModel):

@@ -12,11 +12,14 @@ from PIL import Image
 from ultralytics.utils.downloads import safe_download
 from ultralytics.utils.plotting import Annotator, colors
 import base_validator
-# from src.app.validators.base_validator import BaseValidator
+from src.app.validators.base_validator import BaseValidator
 
-gemini.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 
 class GeminiValidator(BaseValidator):
+    def __init__(self):
+        super().__init__(base_model="gemini-2.5-pro")
+        self.client = genai.Client(api_key="AIzaSyAB8IE5VyPgfpIUr-7xMDoiW9SVYkb7tF0")
+        
     def validate(self, image: Image.Image, class_name: str) -> dict:
         buf = io.BytesIO()
         image.save(buf, format='PNG')
@@ -32,6 +35,45 @@ class GeminiValidator(BaseValidator):
         label = content[1]
         confidence = float(content[-1])
         return {'label': label, 'confidence': confidence}
+    
+    def validate_lpr(self, image: Image.Image, class_name: str) -> dict:
+        # Define the text prompt
+        prompt = """
+        Detect the 2d bounding box around:
+        highlight the area off all visible license plates in each car.
+        """
+
+        # Fixed, plotting function depends on this.
+        output_prompt = """
+        Return just box_2d which will be location of detected text areas + label, the label will be license plate number , 
+        use OCR to extract the the plate number, if license plate is not clear ignore it , no additional text.
+        """
+
+        image, w, h = read_image("./trafic5.jpg")  # Read img, extract width, height
+
+
+        print("Starting inference...")
+        results = self.inference(image, prompt + output_prompt)  # Perform inference
+        print(results)
+        cln_results = json.loads(clean_results(results))  # Clean results, list convert
+
+        annotator = Annotator(image)  # initialize Ultralytics annotator
+
+        for idx, item in enumerate(cln_results):
+            # By default, gemini model return output with y coordinates first.
+            # Scale normalized box coordinates (0–1000) to image dimensions
+            y1, x1, y2, x2 = item["box_2d"]  # bbox post processing,
+            y1 = y1 / 1000 * h
+            x1 = x1 / 1000 * w
+            y2 = y2 / 1000 * h
+            x2 = x2 / 1000 * w
+
+            # if x1 > x2:
+            #     x1, x2 = x2, x1  # Swap x-coordinates if needed
+            # if y1 > y2:
+            #     y1, y2 = y2, y1  # Swap y-coordinates if needed
+
+            annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
     
     def object_detection(self, image: Image.Image) -> list:
         """Detect objects in the image using Gemini's object detection capabilities."""

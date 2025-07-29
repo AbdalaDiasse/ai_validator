@@ -4,7 +4,7 @@ python-dotenv
 pydantic
 Pillow
 openai
-google-generative-ai
+google-genai 
 requests
 ultralytics
 google-genai 

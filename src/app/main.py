@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings  # updated for pydantic v2+ (install pydantic-settings)
 from typing import List
 from src.app.models import ValidateRequest, ValidateResponse, ValidatorResult
 from src.app.utils.image_utils import decode_image, crop_image
@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     google_api_key: str
     nvidia_nim_endpoint: str
     nvidia_nim_api_key: str
+
     class Config:
         env_file = '.env'
 
@@ -20,7 +21,6 @@ settings = Settings()
 
 app = FastAPI(title='VLM Validator Service')
 
-# Instantiate validators
 VALIDATORS = {
     'openai': OpenAIValidator(),
     'gemini': GeminiValidator(),
@@ -29,21 +29,18 @@ VALIDATORS = {
 
 @app.post('/validate', response_model=ValidateResponse)
 def validate(req: ValidateRequest):
-    # Decode and crop
     try:
         img = decode_image(req.image_base64)
         crop = crop_image(img, req.bbox)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Select validators
     names = req.validators or list(VALIDATORS.keys())
     result = {}
     for name in names:
         if name not in VALIDATORS:
             raise HTTPException(status_code=400, detail=f"Unknown validator: {name}")
-        val = VALIDATORS[name].validate(crop, req.class_name)
-        # Convert to 1-10 scale
+        val = VALIDATORS[name].validate(crop, req.class_name ,req.task)
         conf10 = max(1, min(int(val['confidence'] * 10), 10))
         validated = (val['label'].lower() == req.class_name.lower())
         result[name] = ValidatorResult(label=val['label'], confidence=conf10, validated=validated)
