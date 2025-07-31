@@ -10,9 +10,9 @@ class BaseValidator(ABC):
         Subclasses should implement the validate method.
         """
         self.base_model = base_model
-        self.client = genai.Client(api_key="AIzaSyAB8IE5VyPgfpIUr-7xMDoiW9SVYkb7tF0")
+        
     
-    def clean_results(results):
+    def clean_results(self,results):
         """Clean the results for visualization."""
         return results.strip().removeprefix("```json").removesuffix("```").strip()
     

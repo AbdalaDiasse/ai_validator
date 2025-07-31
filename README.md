@@ -16,9 +16,13 @@ Model used
    pip install -r requirements.txt
 
 
-##Source en:
+## Source env:
 
 source /home/tr_user/miniconda3/bin/activate gemini
+
+
+## Start uvicorn Webser
+uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 
 ## To test :
 pytest --maxfail=1 --disable-warnings -q

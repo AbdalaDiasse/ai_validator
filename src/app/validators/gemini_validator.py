@@ -23,7 +23,7 @@ class GeminiValidator(BaseValidator):
         self.client = genai.Client(api_key=google_api_key)
         
 
-    def validate(self, image: Image.Image, class_name: str, task: str) -> dict:
+    def validate(self, image: Image.Image,task: str) -> dict:
         """
         Dispatch validation based on the task: 'lpr', 'gender', or 'age'.
         """
@@ -41,21 +41,68 @@ class GeminiValidator(BaseValidator):
         prompt = """
         Detect 2D bounding boxes for all visible license plates.
         """
+        
         output_prompt = """
-        Return only 'box_2d' and 'label' (plate number from OCR). 
-        Ignore unclear plates. No extra text.
+        Return only 'box_2d',  'label' (plate number from OCR) , and 'confidence' (1-100).
+        Ignore unclear plates. 
+        No extra text.
+        Use OCR to extract the plate number.
+        Make sure there in no space in the plate number, and no special characters, only number and letters only
+           
         """
-        h, w = image.shape[:2]
+        
+        h, w = image.size
         results = self.inference(image, prompt + output_prompt)
+        
         cln_results = json.loads(self.clean_results(results))
-
+        print("Cleaned results:", cln_results)
         annotator = Annotator(image)
         for idx, item in enumerate(cln_results):
             y1, x1, y2, x2 = item["box_2d"]
             y1, x1, y2, x2 = (y1 / 1000 * h, x1 / 1000 * w, y2 / 1000 * h, x2 / 1000 * w)
+            
+            # if x1 > x2:
+            #     x1, x2 = x2, x1  # Swap x-coordinates if needed
+            # if y1 > y2:
+            #     y1, y2 = y2, y1  # Swap y-coordinates if needed
+            
             annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
 
-        return {"detections": cln_results, "annotated_image": annotator.result()}
+        return {"detections": cln_results[0], "annotated_image": annotator.result()}
+    
+    # LPR: Detect and OCR license plates
+    def _validate_lpd(self, image: Image.Image) -> dict:
+        prompt = """
+        Detect 2D bounding boxes for all visible license plates.
+        """
+        
+        output_prompt = """
+        Return only 'box_2d',  'label' (plate number from OCR) , and 'confidence' (1-100).
+        Ignore unclear plates. 
+        No extra text.
+        Use OCR to extract the plate number.
+        Make sure there in no space in the plate number, and no special characters, only number and letters only
+           
+        """
+        
+        h, w = image.size
+        results = self.inference(image, prompt + output_prompt)
+        
+        cln_results = json.loads(self.clean_results(results))
+        print("Cleaned results:", cln_results)
+        annotator = Annotator(image)
+        for idx, item in enumerate(cln_results):
+            y1, x1, y2, x2 = item["box_2d"]
+            y1, x1, y2, x2 = (y1 / 1000 * h, x1 / 1000 * w, y2 / 1000 * h, x2 / 1000 * w)
+            
+            # if x1 > x2:
+            #     x1, x2 = x2, x1  # Swap x-coordinates if needed
+            # if y1 > y2:
+            #     y1, y2 = y2, y1  # Swap y-coordinates if needed
+            
+            annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
+
+        return {"detections": cln_results[0], "annotated_image": annotator.result()}
 
     # # Gender Classification
     # def _validate_gender(self, image: Image.Image, class_name: str) -> dict:

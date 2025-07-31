@@ -19,6 +19,7 @@ VALIDATORS = {
 
 @app.post('/validate', response_model=ValidateResponse)
 def validate(req: ValidateRequest):
+    print("Received validation request:", req)
     try:
         img = decode_image(req.image_base64)
         crop = crop_image(img, req.bbox)
@@ -30,9 +31,9 @@ def validate(req: ValidateRequest):
     for name in names:
         if name not in VALIDATORS:
             raise HTTPException(status_code=400, detail=f"Unknown validator: {name}")
-        val = VALIDATORS[name].validate(crop, req.class_name ,req.task)
-        conf10 = max(1, min(int(val['confidence'] * 10), 10))
-        validated = (val['label'].lower() == req.class_name.lower())
-        result[name] = ValidatorResult(label=val['label'], confidence=conf10, validated=validated)
+        val = VALIDATORS[name].validate(crop,req.task)
+        # print(val)
+        conf10 = max(1, min(int(val["detections"]['confidence'] ), 100))
+        result[name] = ValidatorResult(label=val["detections"]['label'], confidence=conf10)
 
     return ValidateResponse.parse_obj(result)

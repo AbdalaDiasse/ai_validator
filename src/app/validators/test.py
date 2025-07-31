@@ -10,10 +10,13 @@ from ultralytics.utils.downloads import safe_download
 from ultralytics.utils.plotting import Annotator, colors
 import matplotlib.pyplot as plt
 import numpy as np
+
+
 # ultralytics.checks()
 
 
 # Initialize the Gemini client with your API key
+
 client = genai.Client(api_key="AIzaSyAB8IE5VyPgfpIUr-7xMDoiW9SVYkb7tF0")
 
 
@@ -79,28 +82,42 @@ def clean_results(results):
 
 
 # Define the text prompt
+# prompt = """
+# Detect the 2d bounding box around all license plates in the image only:
+# highlight the area off all visible license plates in each car.
+# """
+
+# # Fixed, plotting function depends on this.
+# output_prompt = """
+# Return just box_2d which will be location of detected text areas + label, the label will be license plate number , 
+# use OCR to extract the the plate number, the confidence score which is between 1 to 10 ,if license plate is not clear ignore it , no additional text.
+# """
+
 prompt = """
-Detect the 2d bounding box around:
-highlight the area off all visible license plates in each car.
-"""
-
-# Fixed, plotting function depends on this.
+    Detect 2D bounding boxes for all visible license plates.
+    """
+    
 output_prompt = """
-Return just box_2d which will be location of detected text areas + label, the label will be license plate number , 
-use OCR to extract the the plate number, if license plate is not clear ignore it , no additional text.
+Return only 'box_2d',  'label' (plate number from OCR) , and 'confidence' (1-100).
+Ignore unclear plates. 
+No extra text.
+Use OCR to extract the plate number.
+Make sure there in no space in the plate number, and no special characters, only number and letters only
+    
 """
 
-image, w, h = read_image("./trafic2.jpg")  # Read img, extract width, height
+image, w, h = read_image("/home/tr_user/surveye/ai_validator/data/mobilite-a-Dakar.jpg")  # Read img, extract width, height
 
 
 print("Starting inference...")
 results = inference(image, prompt + output_prompt)  # Perform inference
-print(results)
+# print(results)
 cln_results = json.loads(clean_results(results))  # Clean results, list convert
 
 annotator = Annotator(image)  # initialize Ultralytics annotator
 
 for idx, item in enumerate(cln_results):
+    # print("item:", item)
     # By default, gemini model return output with y coordinates first.
     # Scale normalized box coordinates (0–1000) to image dimensions
     y1, x1, y2, x2 = item["box_2d"]  # bbox post processing,
@@ -113,7 +130,7 @@ for idx, item in enumerate(cln_results):
         x1, x2 = x2, x1  # Swap x-coordinates if needed
     if y1 > y2:
         y1, y2 = y2, y1  # Swap y-coordinates if needed
-
+    print([item["label"],x1, y1, x2, y2])
     annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
 
 

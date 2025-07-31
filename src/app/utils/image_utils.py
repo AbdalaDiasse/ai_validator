@@ -5,6 +5,7 @@ from src.app.models import BBox
 
 
 def decode_image(base64_str: str) -> Image.Image:
+    print("Decoding image from base64 string")
     data = base64.b64decode(base64_str)
     return Image.open(io.BytesIO(data)).convert('RGB')
 
