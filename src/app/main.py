@@ -22,9 +22,13 @@ VALIDATORS = {
 def validate(req: ValidateRequest):
     try:
         # ✅ Step 1: Decode and crop image safely
+        
         try:
             img = decode_image(req.image_base64)
-            crop = crop_image(img, req.bbox)
+            if req.bbox is not None:
+                crop = crop_image(img, req.bbox)
+            else:
+                crop = img  # Use the full image if no bbox provided
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
 

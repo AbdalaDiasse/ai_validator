@@ -37,17 +37,46 @@ class GeminiValidator(BaseValidator):
             raise ValueError(f" Unsupported task: {task}. Allowed: lpr, gender, age")
         
     def _validate_lpr(self, image: Image.Image) -> dict:
+
+
         prompt = """
-        Detect 2D bounding boxes for all visible license plates.
+        You are tasked with detecting and extracting 2D bounding boxes for all visible vehicle license plates in the image.
+
+        IMPORTANT:
+        - All vehicles and license plates in these images are from Senegal.
+        - Only check that the plate number matches the Senegalese license plate format.
+        - DO NOT reject or skip any plate based on country, language, or alphabet—just the format.
+
+        Senegalese license plates use only uppercase Latin letters (A-Z) and digits (0-9).
+        They NEVER contain Cyrillic, lowercase letters, accents, or special symbols.
+
+        Valid formats:
+        - AA123BB  (two letters, three digits, two letters)
+        - AA1234BB (two letters, four digits, two letters)
+        - DK1234A  (two letters, four digits, one letter)
+        - DK1234BB (two letters, four digits, two letters)
+
+        Rules:
+        1. Use OCR to extract the plate number.
+        2. Return a result ONLY if the plate matches this regex: ^[A-Z]{2}[0-9]{3,4}[A-Z]{1,2}$
+        3. Remove any spaces or special characters.
+        4. Ignore unclear or unreadable plates.
+        5. Do not output any country, explanation, or commentary—just the result.
         """
+        
         output_prompt = """
-        Return only 'box_2d', 'label' (plate number from OCR), and 'confidence' (1-100).
-        Ignore unclear plates. 
-        No extra text.
-        Use OCR to extract the plate number.
-        Make sure there is no space in the plate number, and no special characters, only numbers and letters.
+        Return ONLY a JSON array where each element is:
+        {
+        "box_2d": [x_min, y_min, x_max, y_max],
+        "label": "<PLATE>",
+        "confidence": <1-100>
+        }
+        - 'label' must match: ^[A-Z]{2}[0-9]{3,4}[A-Z]{1,2}$
+        - Remove spaces and special characters.
+        - No extra text, no explanations.
         """
 
+        
         try:
             # Step 1: Run inference
             results = self.run_inference(self.client, image, self.base_model, prompt + output_prompt)
@@ -62,10 +91,11 @@ class GeminiValidator(BaseValidator):
 
             # Step 3: Parse JSON safely
             try:
-                cln_results = json.loads(self.clean_results(raw_output))
+                cln_results = self.clean_results(raw_output)
             except (json.JSONDecodeError, TypeError) as e:
                 return {"success": False, "error": f"Invalid JSON from LLM: {e}", "detections": []}
-
+            print("Cleaned results:", cln_results)
+            
             # Step 4: Validate detection list format
             if not isinstance(cln_results, list):
                 return {"success": False, "error": "LLM returned non-list result", "detections": []}
@@ -94,91 +124,7 @@ class GeminiValidator(BaseValidator):
             return {"success": False, "error": f"Unexpected error: {str(e)}", "detections": []}
     
     
-    # def _validate_lpr(self, image: Image.Image) -> dict:
-    #     prompt = """
-    #     Detect 2D bounding boxes for all visible license plates.
-    #     """
-    #     output_prompt = """
-    #     Return only 'box_2d', 'label' (plate number from OCR), and 'confidence' (1-100).
-    #     Ignore unclear plates. 
-    #     No extra text.
-    #     Use OCR to extract the plate number.
-    #     Make sure there is no space in the plate number, and no special characters, only numbers and letters.
-    #     """
-
-    #     try:
-    #         # Call inference
-    #         results = self.run_inference(self.client, image, self.base_model, prompt + output_prompt)
-
-    #         # ✅ Ensure the inference call returned a proper structure
-    #         if not isinstance(results, dict) or not results.get("success", True):
-    #             return {"success": False, "error": results.get("error", "Unknown LLM error")}
-
-    #         raw_output = results.get("output")
-    #         if not raw_output:
-    #             return {"success": False, "error": "Empty response from LLM"}
-
-    #         # ✅ Try to parse the LLM output as JSON
-    #         try:
-    #             cln_results = json.loads(self.clean_results(raw_output))
-    #         except (json.JSONDecodeError, TypeError) as e:
-    #             return {"success": False, "error": f"Invalid JSON from LLM: {e}"}
-
-    #         # ✅ Validate required keys in the detections
-    #         if not isinstance(cln_results, list) or not all(
-    #             isinstance(item, dict) and {"box_2d", "label", "confidence"}.issubset(item.keys())
-    #             for item in cln_results
-    #         ):
-    #             return {"success": False, "error": "Malformed detection objects from LLM"}
-
-    #         # ✅ Process results only if valid
-    #         h, w = image.size
-    #         annotator = Annotator(image)
-    #         for idx, item in enumerate(cln_results):
-    #             y1, x1, y2, x2 = item["box_2d"]
-    #             y1, x1, y2, x2 = (y1 / 1000 * h, x1 / 1000 * w, y2 / 1000 * h, x2 / 1000 * w)
-    #             annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
-
-    #         return {"success": True, "detections": cln_results, "annotated_image": annotator.result()}
-
-    #     except Exception as e:
-    #         # ✅ Catch any unexpected runtime errors
-    #         return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
-    # def _validate_lpr(self, image: Image.Image) -> dict:
-    #     prompt = """
-    #     Detect 2D bounding boxes for all visible license plates.
-    #     """
-        
-    #     output_prompt = """
-    #     Return only 'box_2d',  'label' (plate number from OCR) , and 'confidence' (1-100).
-    #     Ignore unclear plates. 
-    #     No extra text.
-    #     Use OCR to extract the plate number.
-    #     Make sure there in no space in the plate number, and no special characters, only number and letters only
-           
-    #     """
-        
-    #     h, w = image.size
-    #     results = self.run_inference(self.client,image,self.base_model, prompt + output_prompt)
-    #     print(results)
-    #     cln_results = json.loads(self.clean_results(results["output"]))
-    #     print("Cleaned results:", cln_results)
-    #     annotator = Annotator(image)
-    #     for idx, item in enumerate(cln_results):
-    #         y1, x1, y2, x2 = item["box_2d"]
-    #         y1, x1, y2, x2 = (y1 / 1000 * h, x1 / 1000 * w, y2 / 1000 * h, x2 / 1000 * w)
-            
-    #         # if x1 > x2:
-    #         #     x1, x2 = x2, x1  # Swap x-coordinates if needed
-    #         # if y1 > y2:
-    #         #     y1, y2 = y2, y1  # Swap y-coordinates if needed
-            
-    #         annotator.box_label([x1, y1, x2, y2], label=item["label"], color=colors(idx, True))
-
-    #     return {"detections": cln_results[0], "annotated_image": annotator.result()}
-    
-    # LPR: Detect and OCR license plates
     def _validate_lpd(self, image: Image.Image) -> dict:
         prompt = """
         Detect 2D bounding boxes for all visible license plates.
@@ -212,30 +158,4 @@ class GeminiValidator(BaseValidator):
 
         return {"detections": cln_results[0], "annotated_image": annotator.result()}
 
-    # # Gender Classification
-    # def _validate_gender(self, image: Image.Image, class_name: str) -> dict:
-    #     return self._run_gemini_validator(image, class_name, task_type="gender")
-
-    # # Age Estimation
-    # def _validate_age(self, image: Image.Image, class_name: str) -> dict:
-    #     return self._run_gemini_validator(image, class_name, task_type="age")
-
-    # # Shared Gemini Validation Logic for gender/age
-    # def _run_gemini_validator(self, image: Image.Image, class_name: str, task_type: str) -> dict:
-    #     buf = io.BytesIO()
-    #     image.save(buf, format='PNG')
-    #     img_bytes = buf.getvalue()
-
-    #     response = gemini.chat.create(
-    #         model='gemini-1.5',
-    #         prompt=f"Validate the detected class '{class_name}' for {task_type}. "
-    #                f"Return label (predicted {task_type}) and confidence (0-1).",
-    #         images=[{'image_bytes': img_bytes, 'mime_type': 'image/png'}]
-    #     )
-
-    #     content = response.last.user_response_text.strip().split()
-    #     label = content[1]
-    #     confidence = float(content[-1])
-        
-        
-        return {"label": label, "confidence": confidence}
+    

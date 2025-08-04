@@ -9,7 +9,8 @@ class BBox(BaseModel):
 
 class ValidateRequest(BaseModel):
     image_base64: str
-    bbox: BBox
+    # bbox: BBox
+    bbox: Optional[BBox] = None   # <-- bbox is now optional
     task: Literal["lpr", "lpd", "age", "gender"]   #restrict to only these options
     validator: Literal["openai", "gemini", "nvidia"]   #restrict to only these options
 

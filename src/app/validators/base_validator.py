@@ -5,7 +5,10 @@ from google.genai import types
 from google import genai
 from google.genai.types import GenerateContentResponse
 from google.api_core.exceptions import GoogleAPIError
+import json
+import re
 
+PLATE_REGEX = re.compile(r"^[A-Z]{2}[0-9]{3,4}[A-Z]{1,2}$")
 class BaseValidator(ABC):
     def __init__(self,base_model):
         """
@@ -14,10 +17,42 @@ class BaseValidator(ABC):
         """
         self.base_model = base_model
         
+
+
+    def clean_plate(self,label: str) -> str | None:
+        """Keep only A-Z0-9, enforce Senegalese plate regex."""
+        clean = re.sub(r'[^A-Z0-9]', '', label.upper())
+        return clean if PLATE_REGEX.match(clean) else None
+
+    def clean_results(self, results: str):
+        """Clean raw model output, enforce JSON and Senegal plate constraints."""
+        try:
+            # Step 1: Remove markdown fences
+            print("Raw results:", results)
+            cleaned = results.strip().removeprefix("```json").removesuffix("```").strip()
+            print("Cleaned results:", cleaned)
+            # Step 2: Attempt to load as JSON
+            parsed = json.loads(cleaned)
+            print("Parsed results:", parsed)
+            # Step 3: Validate labels with regex
+            valid_outputs = []
+            for item in parsed:
+                label = item.get("label", "")
+                valid_label = self.clean_plate(label)
+                if valid_label:
+                    # Replace label with cleaned version
+                    item["label"] = valid_label
+                    valid_outputs.append(item)
+            print("Valid outputs:", valid_outputs)
+            return valid_outputs
+
+        except Exception as e:
+            print(f"❌ Failed to parse/clean results: {e}")
+            return []
     
-    def clean_results(self,results):
-        """Clean the results for visualization."""
-        return results.strip().removeprefix("```json").removesuffix("```").strip()
+    # def clean_results(self,results):
+    #     """Clean the results for visualization."""
+    #     return results.strip().removeprefix("```json").removesuffix("```").strip()
     
     @abstractmethod
     def validate(self, image: Image.Image, class_name: str) -> dict:
