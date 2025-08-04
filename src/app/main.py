@@ -17,23 +17,66 @@ VALIDATORS = {
     'nvidia': NvidiaValidator()
 }
 
+
 @app.post('/validate', response_model=ValidateResponse)
 def validate(req: ValidateRequest):
-    print("Received validation request:", req)
     try:
-        img = decode_image(req.image_base64)
-        crop = crop_image(img, req.bbox)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # ✅ Step 1: Decode and crop image safely
+        try:
+            img = decode_image(req.image_base64)
+            crop = crop_image(img, req.bbox)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
 
-    names = req.validators or list(VALIDATORS.keys())
-    result = {}
-    for name in names:
+        name = req.validator
         if name not in VALIDATORS:
             raise HTTPException(status_code=400, detail=f"Unknown validator: {name}")
-        val = VALIDATORS[name].validate(crop,req.task)
-        # print(val)
-        conf10 = max(1, min(int(val["detections"]['confidence'] ), 100))
-        result[name] = ValidatorResult(label=val["detections"]['label'], confidence=conf10)
 
-    return ValidateResponse.parse_obj(result)
+        # ✅ Step 2: Call the validator
+        try:
+            val = VALIDATORS[name].validate(crop, req.task)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Validator execution error: {str(e)}")
+
+        # ✅ Step 3: Ensure validator returned a proper structure
+        if not isinstance(val, dict) or not val.get("success", True):
+            error_msg = val.get("error", "Validator returned an error") if isinstance(val, dict) else "Invalid validator response"
+            raise HTTPException(status_code=500, detail=error_msg)
+
+        detections = val.get("detections", [])
+        if not isinstance(detections, list):
+            raise HTTPException(status_code=500, detail="Validator returned detections in invalid format")
+
+        # ✅ Step 4: Handle empty detection list
+        if len(detections) == 0:
+            print("No License platen detected")
+            return ValidateResponse({name: ValidatorResult(label="0", confidence=1)})
+
+
+        # ✅ Step 5: Process first detection safely (or loop if needed)
+        first_det = detections[0]
+        print("first_det:", first_det)
+        print([k in first_det for k in ["label", "confidence"]])
+        if not all(k in first_det for k in ["label", "confidence"]):
+            raise HTTPException(status_code=500, detail="Malformed detection result from validator")
+
+        try:
+            conf10 = max(1, min(int(first_det["confidence"]), 100))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=500, detail="Invalid confidence value in detection result")
+
+        # ✅ Step 6: Build and return response
+        result = {
+            name: ValidatorResult(
+                label=first_det["label"],
+                confidence=conf10
+            )
+        }
+        return ValidateResponse({name: ValidatorResult(label=first_det["label"], confidence=conf10)})
+        # return ValidateResponse(result=result)
+
+    except HTTPException:
+        raise  # let FastAPI handle it normally
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected server error: {str(e)}")
+

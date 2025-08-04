@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from PIL import Image
 from google import genai
 from google.genai import types
+from google import genai
+from google.genai.types import GenerateContentResponse
+from google.api_core.exceptions import GoogleAPIError
 
 class BaseValidator(ABC):
     def __init__(self,base_model):
@@ -25,7 +28,38 @@ class BaseValidator(ABC):
         """
         pass
     
-    def inference(self,image, prompt, temp=0.5):
+    def run_inference(self,client: genai.Client, image ,model_name: str, prompt: str,temp=0.5):
+        try:
+            # Perform the inference call
+            response: GenerateContentResponse = client.models.generate_content(
+                model=model_name,
+                contents=[prompt, image],  # Provide both the text prompt and image as input,
+                config=types.GenerateContentConfig(
+                    temperature=temp,  # Controls creativity vs. determinism in output
+                ),
+            )
+
+            # Check if response has error
+            if hasattr(response, "error") and response.error:
+                return {"success": False, "error": response.error.message}
+
+            # Check if candidates exist
+            if not response.candidates:
+                return {"success": False, "error": "No candidates returned by the model"}
+
+            # Extract text output
+            output_text = response.candidates[0].content.parts[0].text
+            return {"success": True, "output": output_text}
+
+        except GoogleAPIError as e:
+            # Catch Google API errors
+            return {"success": False, "error": f"API error: {str(e)}"}
+
+        except Exception as e:
+            # Catch unexpected errors
+            return {"success": False, "error": f"Unexpected error: {str(e)}"}
+    
+    def inference2(self,image, prompt, temp=0.5):
         """
         Performs inference using Google Gemini 2.5 Pro Experimental model.
 
@@ -40,10 +74,14 @@ class BaseValidator(ABC):
         response = self.client.models.generate_content(
             # model="gemini-2.5-flash-preview-05-20",  # or "gemini-2.5-pro-exp-03-25"
             model="gemini-2.5-pro",
+            # model="gemini-2.0-flash",
+            # model="gemini-2.5-flash",
             contents=[prompt, image],  # Provide both the text prompt and image as input
             config=types.GenerateContentConfig(
                 temperature=temp,  # Controls creativity vs. determinism in output
             ),
         )
+        
+        print("gemini response: ", response)
 
         return response.text  # Return the generated textual response 

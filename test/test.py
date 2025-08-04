@@ -6,7 +6,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 # ==== Configuration ====
 API_URL = "http://localhost:8000/validate"
-IMAGE_PATH = "/home/tr_user/surveye/ai_validator/data/trafic2.jpg"
+
+IMAGE_PATH = "/home/abda/ai/ai_validator/data/trafic2.jpg"
+# IMAGE_PATH = "/home/abda/ai/ai_validator/data/Blog-Image-Part-6-of-6-man-down-700x28.jpg"
 
 # Bounding box (example)
 bbox = {"x": 1211, "y": 743, "width": 109, "height": 38}
@@ -21,12 +23,13 @@ payload = {
     "image_base64": image_base64,
     "bbox": bbox,
     "task": "lpr",  # License Plate Recognition
-    "validators": ["gemini"]
+    "validator": "gemini"
 }
 
 # ==== 3. Send request ====
 response = requests.post(API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
-
+print(response.status_code,"\n")
+# print(response.text)
 if response.status_code != 200:
     print("❌ Request failed:", response.text)
     exit()

@@ -5,6 +5,7 @@ pydantic
 Pillow
 openai
 google-genai 
+google-cloud-core
 requests
 ultralytics
 google-genai
