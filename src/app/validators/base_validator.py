@@ -63,16 +63,18 @@ class BaseValidator(ABC):
         """
         pass
     
-    def run_inference(self,client: genai.Client, image ,model_name: str, prompt: str,temp=0.5):
+    async def run_inference(self,client: genai.Client, image ,model_name: str, prompt: str,temp=0.5):
         try:
             # Perform the inference call
-            response: GenerateContentResponse = client.models.generate_content(
+            response: GenerateContentResponse = await client.aio.models.generate_content(
                 model=model_name,
                 contents=[prompt, image],  # Provide both the text prompt and image as input,
                 config=types.GenerateContentConfig(
                     temperature=temp,  # Controls creativity vs. determinism in output
                 ),
             )
+            
+            print("LLM response :" , response)
 
             # Check if response has error
             if hasattr(response, "error") and response.error:

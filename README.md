@@ -8,7 +8,7 @@ This project provides a FastAPI-based service for validating outputs from detect
 - Supports image cropping and bounding box handling
 - Extensible validator architecture
 
-## Setup
+## Setup locally
 
 1. **Clone the repository**
    ```bash
@@ -27,6 +27,20 @@ This project provides a FastAPI-based service for validating outputs from detect
 4. **Start the API server**
    ```bash
    uvicorn src.app.main:app --host 0.0.0.0 --port 8000
+   ```
+
+## Docker
+
+1. **build image **
+   ```bash
+   git clone <your-repo-url>
+   cd ai_validator
+   docker build -t vlm-validator:dev .
+   ```
+
+2. **Run container **
+   ```bash
+   docker run -it --rm -p 8080:8080 -v .env:/app/.env  --name ai-validator ai-validator:dev
    ```
 
 ## API Usage

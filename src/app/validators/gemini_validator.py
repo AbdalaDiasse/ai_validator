@@ -7,6 +7,7 @@ import os
 import cv2
 import json
 import ultralytics
+from anyio import to_thread
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -23,12 +24,12 @@ class GeminiValidator(BaseValidator):
         self.client = genai.Client(api_key=google_api_key)
         self.base_model ="gemini-2.5-pro"
 
-    def validate(self, image: Image.Image,task: str) -> dict:
+    async def validate(self, image: Image.Image,task: str) -> dict:
         """
         Dispatch validation based on the task: 'lpr', 'gender', or 'age'.
         """
         if task == "lpr":
-            return self._validate_lpr(image)
+            return await self._validate_lpr(image)
         # elif task == "gender":
         #     return self._validate_gender(image, class_name)
         # elif task == "age":
@@ -36,8 +37,7 @@ class GeminiValidator(BaseValidator):
         else:
             raise ValueError(f" Unsupported task: {task}. Allowed: lpr, gender, age")
         
-    def _validate_lpr(self, image: Image.Image) -> dict:
-
+    async def _validate_lpr(self, image: Image.Image) -> dict:
 
         prompt = """
         You are tasked with detecting and extracting 2D bounding boxes for all visible vehicle license plates in the image.
@@ -79,7 +79,8 @@ class GeminiValidator(BaseValidator):
         
         try:
             # Step 1: Run inference
-            results = self.run_inference(self.client, image, self.base_model, prompt + output_prompt)
+            # results = await to_thread.run_sync(self.run_inference,self.client, image, self.base_model, prompt + output_prompt)
+            results = await self.run_inference(self.client, image, self.base_model, prompt + output_prompt)
 
             # Step 2: Validate response structure
             if not isinstance(results, dict) or not results.get("success", True):

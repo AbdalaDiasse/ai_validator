@@ -6,9 +6,9 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 
 # ==== Configuration ====
-API_URL = "http://localhost:8000/validate"
-INPUT_FOLDER = "/home/abda/ai/ai_validator/data/lpr"     # Folder containing input images
-OUTPUT_FOLDER = "/home/abda/ai/ai_validator/data/output"    # Folder to save annotated images
+API_URL = "http://localhost:8080/validate"
+INPUT_FOLDER = "/home/tr_user/surveye/ai_validator/data/lpr"     # Folder containing input images
+OUTPUT_FOLDER = "/home/tr_user/surveye/ai_validator/data/output"    # Folder to save annotated images
 
 # Example bounding box
 bbox = {"x": 1211, "y": 743, "width": 109, "height": 38}
