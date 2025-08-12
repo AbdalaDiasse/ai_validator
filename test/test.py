@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ==== Configuration ====
 API_URL = "http://localhost:8080/validate"
 API_URL ="https://ai-validator-654942414948.europe-west9.run.app/validate"
-API_URL = "https://ai-validator-bqvwxg2cvq-od.a.run.app/validate "
+# API_URL = "https://ai-validator-bqvwxg2cvq-od.a.run.app/validate"
 INPUT_FOLDER = "/home/tr_user/surveye/ai_validator/data/lpr"     # Folder containing input images
 OUTPUT_FOLDER = "/home/tr_user/surveye/ai_validator/data/output"    # Folder to save annotated images
 
@@ -38,8 +38,11 @@ for filename in os.listdir(INPUT_FOLDER):
         "validator": "gemini"
     }
 
+    response_healthz = requests.post("https://ai-validator-bqvwxg2cvq-od.a.run.app/healthz", headers={"Content-Type": "application/json"},verify=False)
+    print("Health Check Response:", response_healthz.text)
+    exit(0)  # Exit after health check for testing
     # === 3. Send request ===
-    response = requests.post(API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
+    response = requests.post(API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload),verify=False)
     
     if response.status_code != 200:
         print(f"❌ Request failed for {filename}: {response.text}")
