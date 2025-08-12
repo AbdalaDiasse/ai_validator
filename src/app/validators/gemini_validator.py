@@ -110,7 +110,12 @@ class GeminiValidator(BaseValidator):
                 return {"success": False, "error": "Malformed detection objects from LLM", "detections": []}
 
             # Step 6: Annotate image with detections
-            h, w = image.size
+            # PIL reports image size as (width, height). The original code
+            # mistakenly unpacked this tuple as (height, width), which caused
+            # the horizontal and vertical scaling to be swapped. As a result the
+            # drawn bounding boxes appeared in the wrong location. Unpacking in
+            # the correct order fixes the bug.
+            w, h = image.size
             annotator = Annotator(image)
             for idx, item in enumerate(cln_results):
                 y1, x1, y2, x2 = item["box_2d"]
