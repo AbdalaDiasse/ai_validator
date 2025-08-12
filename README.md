@@ -43,6 +43,56 @@ This project provides a FastAPI-based service for validating outputs from detect
    docker run -it --rm -p 8080:8080 -v .env:/app/.env  --name ai-validator ai-validator:dev
    ```
 
+
+## Google Cloud Plateform
+
+1. **Install gcloud**
+   ```bash
+   # Add the Google Cloud SDK distribution URI as a package source
+   sudo apt-get install apt-transport-https ca-certificates gnupg curl -y
+   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+   | sudo tee /etc/apt/sources.list.d/google-cloud-sdk.list
+
+   # Import the Google Cloud public key
+   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+   | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+
+   # Update and install the CLI
+   sudo apt-get update && sudo apt-get install google-cloud-cli -y
+   # Once installed run to initialize gcloud
+   gcloud init
+   ```
+2. **Make sure the following services are activated**
+   ```bash
+   gcloud services enable \
+      artifactregistry.googleapis.com \
+      run.googleapis.com \
+      cloudbuild.googleapis.com \
+      secretmanager.googleapis.com
+   ```
+3. **Push the image to  Registry**
+   ```bash
+   gcloud auth configure-docker us-central1-docker.pkg.dev
+
+   # We have two Options 
+   # Option 1 :
+   docker tag ai-validator:dev us-central1-docker.pkg.dev/surveye-468818/serveye/ai-validator:dev
+   docker push us-central1-docker.pkg.dev/surveye-468818/serveye/ai-validator:dev 
+
+   # Option 2 :
+   # if we want to call also  use builds submit which will build directly to cloud build
+   cd <PROJECT_DIR> # Make sure you have Dockefile in it
+   gcloud builds submit --tag us-central1-docker.pkg.dev/surveye-468818/serveye/ai-validator:dev
+
+   ```
+
+4. **Store gemini API key as secrete**
+   ```bash
+      echo -n "<YOUR_GEMINI_API_KEY>" | \
+      gcloud secrets create APP_GOOGLE_API_KEY --data-file=-
+   ```
+5. **Deploy to cloud run**
+
 ## API Usage
 
 ### Endpoint
