@@ -2,11 +2,24 @@
 
 This project provides a FastAPI-based service for validating outputs from detection models (e.g., license plate, age, gender) using multiple AI validators (OpenAI, Gemini, Nvidia).
 
-## Features
-
+## Features & Status
 - Validate detection results using multiple AI backends
 - Supports image cropping and bounding box handling
 - Extensible validator architecture
+
+
+
+
+## AI Models
+- [✅] Gemini
+- [🚧] OpenAI
+- [🚧] NVIDIA NIM microservices
+
+## Validators
+- [✅] License Plate Recognition
+- [🚧] Face Attributes (age, gender)
+- [🚧 ] Vehicle Attributes (color, type, brand)
+
 
 ## Setup locally
 
@@ -26,7 +39,7 @@ This project provides a FastAPI-based service for validating outputs from detect
 
 4. **Start the API server**
    ```bash
-   uvicorn src.app.main:app --host 0.0.0.0 --port 8000
+  python main.py
    ```
 
 ## Docker
@@ -160,13 +173,6 @@ print(response.json())
 }
 ```
 
-## Testing
-
-Run unit tests with:
-
-```bash
-pytest --maxfail=1 --disable-warnings -q
-```
 
 ## Project Structure
 
