@@ -31,14 +31,14 @@ This project provides a FastAPI-based service for validating outputs from detect
 
 ## Docker
 
-1. **build image **
+1. **build image**
    ```bash
    git clone <your-repo-url>
    cd ai_validator
    docker build -t vlm-validator:dev .
    ```
 
-2. **Run container **
+2. **Run container**
    ```bash
    docker run -it --rm -p 8080:8080 -v .env:/app/.env  --name ai-validator ai-validator:dev
    ```
@@ -100,11 +100,22 @@ This project provides a FastAPI-based service for validating outputs from detect
 `POST /validate`
 
 ### Request Body
+If bbox is provided,  the licene plate is cropped from the full image
 
 ```json
 {
   "image_base64": "<base64-encoded-image>",
   "bbox": { "x": 1211, "y": 743, "width": 109, "height": 38 },
+  "task": "lpr",  
+  "validator": "gemini" 
+}
+```
+
+We can also call the endpoint by providing the cropped license plate directly without any bbox
+
+```json
+{
+  "image_base64": "<base64-encoded-image>",
   "task": "lpr",  
   "validator": "gemini" 
 }
@@ -116,21 +127,24 @@ This project provides a FastAPI-based service for validating outputs from detect
 import base64
 import json
 import requests
+from pathlib import Path
+import os 
+API_URL = "https://ai-validator-654942414948.europe-west9.run.app/validate"
 
-API_URL = "http://localhost:8000/validate"
-IMAGE_PATH = "data/trafic2.jpg"
+# Current file's dir
+project_root = Path(__file__).resolve().parent.parent
+IMAGE_PATH = os.path.join(project_root, "data","lpr2", "N19M55S184_2433166_5_220526_c0.00_r0.00_p0.00_y0.00_b0.00_w0_0.00.jpg")
 
 with open(IMAGE_PATH, "rb") as f:
     image_base64 = base64.b64encode(f.read()).decode("utf-8")
 
 payload = {
     "image_base64": image_base64,
-    "bbox": {"x": 1211, "y": 743, "width": 109, "height": 38},
     "task": "lpr",
     "validator": "gemini"
 }
 
-response = requests.post(API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
+response = requests.post(API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload),verify=False)
 print(response.json())
 ```
 
@@ -140,7 +154,8 @@ print(response.json())
 {
   "gemini": {
     "label": "AA 757 GZ",
-    "confidence": 95
+    "confidence": 95,
+    "detail": "License plate detected"
   }
 }
 ```
@@ -157,6 +172,8 @@ pytest --maxfail=1 --disable-warnings -q
 
 - `src/app/main.py` – FastAPI app and endpoint
 - `src/app/validators/` – Validator implementations
+- `src/app/routers/` – Router implementations
+- `src/app/middleware/` – Middleware implementations
 - `src/app/models.py` – Pydantic models
 - `src/app/settings.py` – Configuration loader
 - `test/` – Test scripts and sample requests

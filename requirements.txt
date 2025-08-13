@@ -10,3 +10,4 @@ requests
 ultralytics
 google-genai
 pydantic-settings 
+pytest

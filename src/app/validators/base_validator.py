@@ -73,8 +73,6 @@ class BaseValidator(ABC):
                     temperature=temp,  # Controls creativity vs. determinism in output
                 ),
             )
-            
-            print("LLM response :" , response)
 
             # Check if response has error
             if hasattr(response, "error") and response.error:

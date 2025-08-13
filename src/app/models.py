@@ -17,6 +17,7 @@ class ValidateRequest(BaseModel):
 class ValidatorResult(BaseModel):
     label: str
     confidence: int = Field(..., ge=1, le=100)
+    detail: Optional[str] = None  # Additional info if needed
 
 class ValidateResponse(RootModel[Dict[str, ValidatorResult]]):
     root: Dict[str, ValidatorResult]

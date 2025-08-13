@@ -25,6 +25,7 @@ async def validate(req: ValidateRequest):
 
         name = req.validator
         if name not in VALIDATORS:
+            print(f"Unknown validator: {name}") 
             raise HTTPException(status_code=400, detail=f"Unknown validator: {name}")
 
         # If validator is sync, offload to thread; if you implement .validate_async, call that instead.
@@ -43,7 +44,7 @@ async def validate(req: ValidateRequest):
             raise HTTPException(status_code=500, detail="Validator returned detections in invalid format")
 
         if len(detections) == 0:
-            return ValidateResponse({name: ValidatorResult(label="0", confidence=1)})
+            return ValidateResponse({name: ValidatorResult(label="0", confidence=1, detail="No License plate detected")})
 
         det = detections[0]
         if not all(k in det for k in ["label", "confidence"]):
@@ -54,7 +55,7 @@ async def validate(req: ValidateRequest):
         except (ValueError, TypeError):
             raise HTTPException(status_code=500, detail="Invalid confidence value in detection result")
 
-        return ValidateResponse({name: ValidatorResult(label=det["label"], confidence=conf10)})
+        return ValidateResponse({name: ValidatorResult(label=det["label"], confidence=conf10 , detail="License plate detected")})
     except HTTPException:
         raise
     except Exception as e:
