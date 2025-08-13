@@ -8,6 +8,17 @@ This project provides a FastAPI-based service for validating outputs from detect
 - Supports image cropping and bounding box handling
 - Extensible validator architecture
 
+## AI Models
+- [✅] Gemini
+- [🚧] OpenAI
+- [🚧] NVIDIA NIM microservices
+
+## Validators
+- [✅] License Plate Recognition
+- [🚧] Face Attributes (age, gender)
+- [🚧 ] Vehicle Attributes (color, type, brand)
+
+
 ## Setup locally
 
 1. **Clone the repository**
