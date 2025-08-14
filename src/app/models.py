@@ -1,11 +1,34 @@
 from pydantic import BaseModel, Field ,RootModel
 from typing import List, Literal, Optional, Dict
 
+
 class BBox(BaseModel):
     x: int
     y: int
     width: int
     height: int
+
+class IngestRequest(BaseModel):
+    track_id: str
+    frame_id: str
+    ts: Optional[str] = None
+    frame_w: int
+    frame_h: int
+    bbox: Optional[BBox]=None  # [x1,y1,x2,y2] in frame coords
+    image_base64: str
+
+class RecognizeResult(BaseModel):
+    label: str
+    confidence: int = Field(ge=0, le=100)
+
+class RecognizeResponse(BaseModel):
+    track_id: str
+    result: Optional[RecognizeResult] = None
+    status: str  # "pending" | "done" | "none"
+
+class HealthzResponse(BaseModel):
+    status: str = "ok"
+
 
 class ValidateRequest(BaseModel):
     image_base64: str

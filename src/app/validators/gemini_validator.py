@@ -16,7 +16,20 @@ from ultralytics.utils.plotting import Annotator, colors
 from src.app.validators.base_validator import BaseValidator
 from src.app.settings import settings
 google_api_key = settings.google_api_key
+from google.genai.types import GenerateContentResponse
+from typing import List, Dict, Any
 
+PROMPT = """
+Read license plates from the following image crops (Senegal). 
+Rules:
+- Only A-Z and 0-9, uppercase.
+- Remove spaces/punctuation.
+- Valid if matches: ^[A-Z]{2}[0-9]{3,4}[A-Z]{1,2}$
+- If uncertain, return label="" and confidence=0.
+Return ONLY JSON:
+{"results":[{"index":0,"label":"<PLATE>","confidence":1-100}, ...]}
+The 'index' must match the image order (0-based).
+"""
 
 class GeminiValidator(BaseValidator):
     def __init__(self):
@@ -125,6 +138,30 @@ class GeminiValidator(BaseValidator):
             return {"success": False, "error": f"Unexpected error: {str(e)}", "detections": []}
     
     
+    async def batch_recognize(self, images: List[Image.Image]) -> List[Dict[str, Any]]:
+            parts = [types.Part.from_text(PROMPT)]
+            # append images in order, Gemini will see them as parts[1..]
+            for img in images:
+                parts.append(types.Part.from_image(img))
+
+            resp: GenerateContentResponse = await self.client.aio.models.generate_content(
+                model=self.base_model,
+                contents=parts,
+                config=types.GenerateContentConfig(
+                    temperature=float(settings.temperature),
+                    response_mime_type="application/json"
+                ),
+            )
+            text = resp.candidates[0].content.parts[0].text if resp.candidates else "{}"
+            parsed = self.clean_results(text)  # [{"index":i,"label":"..","confidence":..}]
+            # Ensure a result per image index
+            by_idx = {r["index"]: r for r in parsed}
+            out = []
+            for i in range(len(images)):
+                r = by_idx.get(i, {"index": i, "label": "", "confidence": 0})
+                out.append(r)
+            return out
+        
     
     def _validate_lpd(self, image: Image.Image) -> dict:
         prompt = """
