@@ -47,7 +47,7 @@ async def ingest_crop(
         "frame_id": frame_id,
         "frame_w": w,
         "frame_h": h,
-        "bbox": bbox,
+        # "bbox": bbox,
         "image_base64": img_to_b64(img_path),
         # NOTE: your current recognize router didn’t include this field,
         # but if you add it, the service can flush immediately (Pattern A fast-path).

@@ -9,15 +9,24 @@ except ImportError:
     cv2 = None
 
 def variance_of_laplacian(gray_np: np.ndarray) -> float:
+    
+    if gray_np.dtype != np.uint8:
+        gray_np = gray_np.astype(np.uint8, copy=False)
+    
     if cv2 is None:
-        gx = np.abs(np.gradient(gray_np, axis=1))
-        gy = np.abs(np.gradient(gray_np, axis=0))
+        # gx = np.abs(np.gradient(gray_np, axis=1))
+        # gy = np.abs(np.gradient(gray_np, axis=0))
+        gx = np.abs(np.gradient(gray_np.astype(np.float32), axis=1))
+        gy = np.abs(np.gradient(gray_np.astype(np.float32), axis=0))
         return float(np.var(gx + gy))
-    return float(cv2.Laplacian(gray_np, cv2.CV_64F).var())
+    # return float(cv2.Laplacian(gray_np, cv2.CV_64F).var())
+    lap = cv2.Laplacian(gray_np, ddepth=cv2.CV_32F, ksize=3)
+    return float(lap.var())
 
 def crop_score(crop: Image.Image, frame_w: int, frame_h: int) -> float:
     gray = crop.convert("L")
-    arr = np.array(gray, dtype=np.float32)
+    # arr = np.array(gray, dtype=np.float32)
+    arr = np.array(gray)
     cw, ch = gray.size
     # features
     sharp = variance_of_laplacian(arr)

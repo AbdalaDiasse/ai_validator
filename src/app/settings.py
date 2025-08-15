@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     max_wait_ms: int = 1000
     max_imgs: int = 8
     max_parallel_calls: int = 4
+    temperature: float = 0.5
     
 
     class Config:

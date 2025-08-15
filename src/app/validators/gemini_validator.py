@@ -18,6 +18,7 @@ from src.app.settings import settings
 google_api_key = settings.google_api_key
 from google.genai.types import GenerateContentResponse
 from typing import List, Dict, Any
+from io import BytesIO
 
 PROMPT = """
 Read license plates from the following image crops (Senegal). 
@@ -137,22 +138,34 @@ class GeminiValidator(BaseValidator):
             # ✅ Catch unexpected runtime errors
             return {"success": False, "error": f"Unexpected error: {str(e)}", "detections": []}
     
+    def _pil_to_jpeg_bytes(self,img: Image.Image) -> bytes:
+        buf = BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=95)
+        return buf.getvalue()
     
     async def batch_recognize(self, images: List[Image.Image]) -> List[Dict[str, Any]]:
-            parts = [types.Part.from_text(PROMPT)]
-            # append images in order, Gemini will see them as parts[1..]
+        
+            parts: List[types.Part] = []
+            parts.append(types.Part.from_text(text=PROMPT))
+            
             for img in images:
-                parts.append(types.Part.from_image(img))
+                img_bytes = self._pil_to_jpeg_bytes(img)
+                parts.append(
+                    types.Part.from_bytes(mime_type="image/jpeg", data=img_bytes)
+                )
+                # parts.append(img)
 
             resp: GenerateContentResponse = await self.client.aio.models.generate_content(
                 model=self.base_model,
-                contents=parts,
+                contents=[PROMPT, *images],
                 config=types.GenerateContentConfig(
                     temperature=float(settings.temperature),
                     response_mime_type="application/json"
                 ),
             )
             text = resp.candidates[0].content.parts[0].text if resp.candidates else "{}"
+            
+            
             parsed = self.clean_results(text)  # [{"index":i,"label":"..","confidence":..}]
             # Ensure a result per image index
             by_idx = {r["index"]: r for r in parsed}

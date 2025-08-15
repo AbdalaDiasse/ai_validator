@@ -8,8 +8,7 @@ router = APIRouter()
 async def ingest(req: Request, body: IngestRequest):
     service = req.app.state.get_service()
     try:
-        print(body.model_dump())
-        await service.ingest(body.model_dump())
+        await service.ingest(body)
         return JSONResponse({"status":"accepted"})
     except Exception as e:
         raise HTTPException(500, f"Ingestion error: {e}")

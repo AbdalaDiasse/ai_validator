@@ -6,7 +6,7 @@ from src.app.utils.image_utils import decode_image, crop_image
 from src.app.utils.trackbuf import TrackBuffer, BatchBuilder, crop_score
 from src.app.validators.gemini_validator import GeminiValidator
 from src.app.settings import settings
-
+from src.app.models import IngestRequest
 class PatternAService:
     def __init__(self):
         self.top_n = settings.top_n
@@ -28,18 +28,18 @@ class PatternAService:
         if self._task:
             await self._task
 
-    async def ingest(self, req: dict):
+    async def ingest(self, req: IngestRequest):
         # decode & crop off-thread
-        img = await to_thread.run_sync(decode_image, req["image_base64"])
-        crop = await to_thread.run_sync(crop_image, img, req["bbox"]) if req["bbox"] else img
-        score = await to_thread.run_sync(crop_score, crop, req["frame_w"], req["frame_h"])
-        tb = self.buffers.get(req["track_id"])
+        img = await to_thread.run_sync(decode_image, req.image_base64)
+        crop = await to_thread.run_sync(crop_image, img, req.bbox) if req.bbox else img
+        score = await to_thread.run_sync(crop_score, crop, req.frame_w, req.frame_h)
+        tb = self.buffers.get(req.track_id)
         if tb is None:
-            tb = self.buffers[req["track_id"]] = TrackBuffer(req["track_id"], self.top_n, self.idle_ms)
+            tb = self.buffers[req.track_id] = TrackBuffer(req.track_id, self.top_n, self.idle_ms)
         payload = {"image": crop}
         tb.add(score, payload)
         # mark pending for this track
-        self.results.setdefault(req["track_id"], {"status":"pending", "result":None})
+        self.results.setdefault(req.track_id, {"status":"pending", "result":None})
 
     async def _loop(self):
         # periodic: flush ready tracks into batcher, call gemini on batches

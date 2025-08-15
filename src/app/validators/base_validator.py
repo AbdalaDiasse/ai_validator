@@ -24,31 +24,92 @@ class BaseValidator(ABC):
         clean = re.sub(r'[^A-Z0-9]', '', label.upper())
         return clean if PLATE_REGEX.match(clean) else None
 
-    def clean_results(self, results: str):
-        """Clean raw model output, enforce JSON and Senegal plate constraints."""
-        try:
-            # Step 1: Remove markdown fences
-            print("Raw results:", results)
-            cleaned = results.strip().removeprefix("```json").removesuffix("```").strip()
-            print("Cleaned results:", cleaned)
-            # Step 2: Attempt to load as JSON
-            parsed = json.loads(cleaned)
-            print("Parsed results:", parsed)
-            # Step 3: Validate labels with regex
-            valid_outputs = []
-            for item in parsed:
-                label = item.get("label", "")
-                valid_label = self.clean_plate(label)
-                if valid_label:
-                    # Replace label with cleaned version
-                    item["label"] = valid_label
-                    valid_outputs.append(item)
-            print("Valid outputs:", valid_outputs)
-            return valid_outputs
 
+    def clean_results(self, results):
+        """
+        Accepts:
+        - str containing JSON (with/without ```json fences)
+        - dict with 'results' or 'detections' list
+        - list of detection dicts
+        Returns: list of {"index": int, "label": str, "confidence": int}
+        """
+        try:
+            # 1) Normalize to a Python object
+            if isinstance(results, str):
+                s = results.strip()
+                if s.startswith("```"):
+                    # strip leading/trailing code fences like ```json ... ```
+                    s = s.lstrip("`")
+                    # remove an optional 'json' language tag
+                    if s.startswith("json"):
+                        s = s[4:]
+                    s = s.rstrip("`").strip()
+                obj = json.loads(s)
+            else:
+                obj = results  # could already be dict/list from SDK
+
+            # 2) Extract a list
+            if isinstance(obj, dict):
+                items = obj.get("results")
+                if items is None:
+                    items = obj.get("detections")
+                if items is None:
+                    # Some models might return {"label":..., "confidence":...}
+                    # normalize that to a single-item list
+                    items = [obj] if {"label","confidence"} <= set(obj.keys()) else []
+            elif isinstance(obj, list):
+                items = obj
+            else:
+                items = []
+
+            # 3) Validate and normalize entries
+            out = []
+            for i, item in enumerate(items):
+                if not isinstance(item, dict):
+                    continue
+                label = self.clean_plate(item.get("label", ""))
+                if not label:
+                    continue
+                try:
+                    conf = int(item.get("confidence", 1))
+                except Exception:
+                    conf = 1
+                conf = max(1, min(conf, 100))
+                idx = item.get("index", i)
+                out.append({"index": idx, "label": label, "confidence": conf})
+            print("Cleaned results:", out)
+            return out
         except Exception as e:
             print(f"❌ Failed to parse/clean results: {e}")
             return []
+
+
+    # def clean_results(self, results: str):
+    #     """Clean raw model output, enforce JSON and Senegal plate constraints."""
+    #     try:
+    #         # Step 1: Remove markdown fences
+    #         print("Raw results:", results)
+    #         cleaned = results.strip().removeprefix("```json").removesuffix("```").strip()
+    #         print("Cleaned results:", cleaned)
+    #         # Step 2: Attempt to load as JSON
+    #         parsed = json.loads(cleaned)
+    #         print("Parsed results:", type(parsed))
+    #         print("item 0:", parsed[0])
+    #         # Step 3: Validate labels with regex
+    #         valid_outputs = []
+    #         for item in parsed:
+    #             label = item.get("label", "")
+    #             valid_label = self.clean_plate(label)
+    #             if valid_label:
+    #                 # Replace label with cleaned version
+    #                 item["label"] = valid_label
+    #                 valid_outputs.append(item)
+    #         print("Valid outputs:", valid_outputs)
+    #         return valid_outputs
+
+    #     except Exception as e:
+    #         print(f"❌ Failed to parse/clean results: {e}")
+    #         return []
     
     # def clean_results(self,results):
     #     """Clean the results for visualization."""
