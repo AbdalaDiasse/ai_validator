@@ -9,6 +9,7 @@ API_URL = "https://ai-validator-654942414948.europe-west9.run.app/validate"
 project_root = Path(__file__).resolve().parent.parent
 print("Project root:", project_root)
 IMAGE_PATH = os.path.join(project_root, "data","lpr2", "N24M10S727_2460004_5_220850_c0.00_r0.00_p0.00_y0.00_b0.00_w0_0.00.jpg")
+IMAGE_PATH = os.path.join(project_root, "data","lpr2", "licence-plate-1.jpg")
 # IMAGE_PATH = os.path.join(project_root, "data","lpr2", "64cd543d-947e-422e-96b3-990e8de11fce.jpeg")
 
 print("Image path:", IMAGE_PATH)
