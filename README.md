@@ -4,29 +4,128 @@ This project provides a FastAPI-based service for validating outputs from detect
 
 ## Features
 
-- Validate detection results using multiple AI backends
+- Validate detection results using multiple AI backends (Gemini, NVIDIA, OpenAI)
 - Supports image cropping and bounding box handling
 - Extensible validator architecture
+- API key authentication for all endpoints
 
 ## AI Models
 - [✅] Gemini
 - [🚧] OpenAI
-- [🚧] NVIDIA NIM microservices
+- [✅] NVIDIA NIM microservices (attributes extraction)
 
 ## Validators
 - [✅] License Plate Recognition
+- [✅] Visual Attributes (car, body, face) via NVIDIA
 - [🚧] Face Attributes (age, gender)
-- [🚧 ] Vehicle Attributes (color, type, brand)
+- [🚧] Vehicle Attributes (color, type, brand)
+## NVIDIA Attributes Endpoint
 
+### Endpoint
 
-## Setup locally
+`POST /validate/attributes`
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd ai_validator
+### Request Body
+
+```
+{
+
+## NVIDIA Attributes Endpoint
+
+### Endpoint
+
+`POST /validate/attributes`
+
+### API Key Requirement
+
+All requests must include an API key in the header:
+
+```
+X-API-Key: <your_api_key>
+```
+
+Set your API key as an environment variable before running client scripts:
+
+```bash
+export API_KEY=your_actual_key
+```
+
+### Request Body
+
+```json
+{
+   "image_base64": "<base64-encoded-image>",
+   "detection_type": "car"  // or "body" or "face"
+}
+```
+
+Optionally, you can provide a bounding box:
+
+```json
+{
+   "image_base64": "<base64-encoded-image>",
+   "detection_type": "body",
+   "bbox": { "x": 100, "y": 50, "width": 200, "height": 200 }
+}
+```
+
+### Example Python Request
+
+```python
+import base64
+import requests
+import os
+
+IMAGE_PATH = "data/lpr/N19M43S584_2433132_5_220498_c0.00_r0.00_p0.00_y0.00_b0.00_w0_0.00.jpg"
+API_URL = "http://localhost:8080/validate/attributes"
+api_key = os.environ.get("API_KEY")
+
+with open(IMAGE_PATH, "rb") as f:
+    b64 = base64.b64encode(f.read()).decode("utf-8")
+
    ```
+    "image_base64": b64,
+    "detection_type": "body"
+}
+headers = {"Content-Type": "application/json"}
+if api_key:
+    headers["X-API-Key"] = api_key
 
+
+print(r.status_code)
+print(r.json())
+```
+
+### Response
+
+```json
+{
+   "success": true,
+   "content": {
+      "detection_type": "body",
+      "attributes": {
+         "gender": "female",
+         "haircut": "long hair",
+         "hat": "",
+         "security_helmet": "",
+         "upper_body_color": "blue",
+         "upper_body_type": "short sleeves",
+         "lower_body_color": "black",
+         "lower_body_type": "trousers",
+         "bag": "handbag",
+         "umbrella": false
+      }
+   }
+}
+```
+
+On error (missing/invalid key or config):
+```json
+{
+   "success": false,
+   "error": "Invalid API key or NVIDIA_NIM_ENDPOINT not configured"
+}
+```
 2. **Install dependencies**
    ```bash
    pip install -r requirements.txt
@@ -34,6 +133,10 @@ This project provides a FastAPI-based service for validating outputs from detect
 
 3. **Configure environment variables**
    - Copy `.env.example` to `.env` and fill in your API keys (OpenAI, Gemini, Nvidia, etc.).
+   - Set your API key for authentication:
+     ```bash
+     export API_KEY=your_actual_key
+     ```
 
 4. **Start the API server**
    ```bash
@@ -46,7 +149,7 @@ This project provides a FastAPI-based service for validating outputs from detect
    ```bash
    git clone <your-repo-url>
    cd ai_validator
-   docker build -t vlm-validator:dev .
+   docker build -t ai-validator:dev .
    ```
 
 2. **Run container**
@@ -94,52 +197,95 @@ This project provides a FastAPI-based service for validating outputs from detect
    # if we want to call also  use builds submit which will build directly to cloud build
    cd <PROJECT_DIR> # Make sure you have Dockefile in it
    gcloud builds submit --tag us-central1-docker.pkg.dev/surveye-468818/serveye/ai-validator:dev
-
    ```
 
-4. **Store gemini API key as secrete**
+4. **Store gemini API key as secret**
    ```bash
       echo -n "<YOUR_GEMINI_API_KEY>" | \
       gcloud secrets create APP_GOOGLE_API_KEY --data-file=-
    ```
+
 5. **Deploy to cloud run**
+   ```bash
+   gcloud run deploy ai-validator \
+     --image=us-central1-docker.pkg.dev/surveye-468818/serveye/ai-validator:dev \
+     --region=europe-west9 \
+     --platform=managed \
+     --allow-unauthenticated \
+     --set-secrets=APP_GOOGLE_API_KEY=APP_GOOGLE_API_KEY:latest
+   ```
+   ## API Usage
 
-## API Usage
+   ### Endpoint
 
-### Endpoint
+   `POST /validate`
 
-`POST /validate`
+   ### API Key Requirement
 
-### Request Body
-If bbox is provided,  the licene plate is cropped from the full image
+   All requests must include an API key in the header:
 
-```json
-{
-  "image_base64": "<base64-encoded-image>",
-  "bbox": { "x": 1211, "y": 743, "width": 109, "height": 38 },
-  "task": "lpr",  
-  "validator": "gemini" 
-}
-```
+   ```
+   X-API-Key: <your_api_key>
+   ```
 
-We can also call the endpoint by providing the cropped license plate directly without any bbox
+   Set your API key as an environment variable before running client scripts:
 
-```json
-{
-  "image_base64": "<base64-encoded-image>",
-  "task": "lpr",  
-  "validator": "gemini" 
-}
-```
+   ```bash
+   export API_KEY=your_actual_key
+   ```
 
-### Example Python Request
+   ### Request Body
+   If bbox is provided, the license plate is cropped from the full image
 
-```python
-import base64
-import json
-import requests
-from pathlib import Path
+   ```json
+   {
+      "image_base64": "<base64-encoded-image>",
+      "bbox": { "x": 1211, "y": 743, "width": 109, "height": 38 },
+      "task": "lpr",  
+      "validator": "gemini" 
+   }
+   ```
+
+   You can also call the endpoint by providing the cropped license plate directly without any bbox
+
+   ```json
+   {
+      "image_base64": "<base64-encoded-image>",
+      "task": "lpr",  
+      "validator": "gemini" 
+   }
+   ```
+
+   ### Example Python Request
+
+   ```python
+   import base64
+   import json
+   import requests
+   from pathlib import Path
+   import os
+   API_URL = "https://ai-validator-654942414948.europe-west9.run.app/validate"
+   api_key = os.environ.get("API_KEY")
+
+   # Current file's dir
+   project_root = Path(__file__).resolve().parent.parent
+   IMAGE_PATH = os.path.join(project_root, "data","lpr2", "N19M55S184_2433166_5_220526_c0.00_r0.00_p0.00_y0.00_b0.00_w0_0.00.jpg")
+
+   with open(IMAGE_PATH, "rb") as f:
+         image_base64 = base64.b64encode(f.read()).decode("utf-8")
+
 import os 
+         "image_base64": image_base64,
+         "task": "lpr",
+         "validator": "gemini"
+   }
+   headers = {"Content-Type": "application/json"}
+   if api_key:
+         headers["X-API-Key"] = api_key
+
+   response = requests.post(API_URL, headers=headers, data=json.dumps(payload), verify=False)
+   print(response.json())
+   ```
 API_URL = "https://ai-validator-654942414948.europe-west9.run.app/validate"
 
 # Current file's dir
@@ -182,11 +328,11 @@ pytest --maxfail=1 --disable-warnings -q
 ## Project Structure
 
 - `src/app/main.py` – FastAPI app and endpoint
-- `src/app/validators/` – Validator implementations
+- `src/app/validators/` – Validator implementations (including `nvidia_validator.py` for attributes)
 - `src/app/routers/` – Router implementations
-- `src/app/middleware/` – Middleware implementations
+- `src/app/deps/auth.py` – API key authentication dependency
 - `src/app/models.py` – Pydantic models
-- `src/app/settings.py` – Configuration loader
-- `test/` – Test scripts and sample requests
+- `src/app/settings.py` – Configuration loader (API key, endpoints)
+- `test/` – Test scripts and sample requests (all require API key)
 
 ##

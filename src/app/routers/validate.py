@@ -1,19 +1,21 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from anyio import to_thread
-from src.app.models import ValidateRequest, ValidateResponse, ValidatorResult
+from src.app.models import ValidateRequest, ValidateResponse, ValidatorResult, NvidiaAttributesRequest
 from src.app.utils.image_utils import decode_image, crop_image
 from src.app.validators.openai_validator import OpenAIValidator
 from src.app.validators.gemini_validator import GeminiValidator
 from src.app.validators.nvidia_validator import NvidiaValidator
+from src.app.deps.auth import api_key_auth
 
 router = APIRouter()
 VALIDATORS = {
     "openai": OpenAIValidator(),
     "gemini": GeminiValidator(),
     "nvidia": NvidiaValidator(),
+    "attributes": NvidiaValidator(),
 }
 
-@router.post("/validate", response_model=ValidateResponse)
+@router.post("/validate", response_model=ValidateResponse, dependencies=[Depends(api_key_auth)])
 async def validate(req: ValidateRequest):
     try:
         # decode/crop on a worker thread if it's CPU-heavy (Pillow)
@@ -56,6 +58,50 @@ async def validate(req: ValidateRequest):
             raise HTTPException(status_code=500, detail="Invalid confidence value in detection result")
 
         return ValidateResponse({name: ValidatorResult(label=det["label"], confidence=conf10 , detail="License plate detected")})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected server error: {str(e)}")
+
+
+@router.post("/validate/attributes", dependencies=[Depends(api_key_auth)])
+async def validate_nvidia_attributes(req: NvidiaAttributesRequest):
+    """Endpoint to extract visual attributes (car/body/face) using NVIDIA backend.
+
+    Returns the raw attributes JSON returned by the Nvidia service wrapped in a
+    simple envelope: {"success": True, "attributes": {...}} or an HTTP error.
+    """
+    try:
+        try:
+            img = await to_thread.run_sync(decode_image, req.image_base64)
+            crop = await to_thread.run_sync(crop_image, img, req.bbox) if req.bbox is not None else img
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Image processing error: {str(e)}")
+
+        validator = VALIDATORS.get("attributes")
+        if validator is None:
+            raise HTTPException(status_code=500, detail="Nvidia validator not configured")
+
+        # Choose specific method per detection_type to allow different handling per type
+        method_map = {
+            "car": validator.attributes_car,
+            "body": validator.attributes_body,
+            "face": validator.attributes_face,
+        }
+
+        if req.detection_type not in method_map:
+            raise HTTPException(status_code=400, detail=f"Unsupported detection_type: {req.detection_type}")
+
+        # call the specific attributes extractor in a worker thread
+        result = await to_thread.run_sync(method_map[req.detection_type], crop)
+
+        if not isinstance(result, dict) or not result.get("success", False):
+            err = result.get("error", "Validator returned an error") if isinstance(result, dict) else "Invalid validator response"
+            raise HTTPException(status_code=500, detail=err)
+
+        # return raw attributes
+        return result
+
     except HTTPException:
         raise
     except Exception as e:

@@ -11,3 +11,4 @@ ultralytics
 google-genai
 pydantic-settings 
 pytest
+instructor
